@@ -36,7 +36,8 @@
             - [基数排序](#基数排序)
             - [桶排序](#桶排序)
             - [排序算法比较](#排序算法比较)
-        - [位图（Bitmap）算法](#位图（Bitmap）算法)       
+        - [位图（Bitmap）算法](#位图（Bitmap）算法)
+        - [分治、动态规划、贪心算法](#分治、动态规划、贪心算法)
 - [面试](#面试)
     - [B树和B+树的区别](#B树和B+树的区别)
     - [常用的排序算法](#常用的排序算法)
@@ -1126,6 +1127,10 @@ bitmap应用
 位图在实际项目中的使用
 * OAuth2，可以使用bitmap来存储权限。
 * 用户每日登陆情况。
+
+### 分治、动态规划、贪心算法
+[理论](https://blog.csdn.net/yapian8/article/details/28240973)<br>
+应用题：[最大子序和](https://leetcode-cn.com/problems/maximum-subarray/solution/zheng-li-yi-xia-kan-de-dong-de-da-an-by-lizhiqiang/) [官方解答](https://leetcode-cn.com/problems/maximum-subarray/solution/zui-da-zi-xu-he-by-leetcode/)
 
 # 面试
 ## B树和B+树的区别

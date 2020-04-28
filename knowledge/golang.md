@@ -46,7 +46,7 @@
 ---
 # 基础
 ## 简介
-golang是编译型语言，静态类型语言<br>
+golang是编译型语言，静态类型语言。<br>
 过程：先进行词法分析、语法分析、语义分析（包括类型检查等），生成中间码，再进行代码优化，最后生成机器码。<br>
 
 参考：
@@ -55,7 +55,7 @@ golang是编译型语言，静态类型语言<br>
 
 ![](../pictures/golang/golang_compile_1.png)
 
-![](../pictures/golang/golang_compile.webp)
+![](../pictures/golang/golang_compile.jpg)
 
 源码执行顺序：先执行全局变量，再执行init函数，再执行main函数。
 
