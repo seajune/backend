@@ -8,7 +8,9 @@
         - [反向代理](#反向代理)
         - [负载均衡](#负载均衡)
         - [动静分离](#动静分离)
+        - [限流](#限流)
         - [配置文件](#配置文件)
+        - [Nginx常用命令](#Nginx常用命令)
     - [后端框架](#后端框架)
         - [Flask(Python)](#Flask(Python))
         - [Tornado(Python)](#Tornado(Python))
@@ -66,6 +68,7 @@ Nginx是一款轻量级的Web服务器、反向代理服务器及电子邮件（
 * 反向代理
 * 负载均衡
 * 动静分离
+* 限流
 * 缓存
 
 优点
@@ -121,9 +124,22 @@ nginx支持的四种负载均衡调度算法
 * 静态资源的交互性差，动态资源可以根据需求自由实现。
 * 在服务器的运行状态不同，静态资源不需要数据库参于程序处理，动态可能需要多个数据库的参与运算。
 
+### 限流
+[参考](https://www.cnblogs.com/biglittleant/p/8979915.html)
+* 限制单位时间内的请求数，即速率限制，采用漏桶算法。
+* 限制同一时间连接数，即并发限制。
+* 可以通过burst关键字开启对突发请求的缓存处理，而不是直接拒绝。
+
 ### 配置文件
 [参考1](https://blog.csdn.net/finnson/article/details/82461600)
 [参考2](https://blog.csdn.net/qq_39591494/article/details/78857677)
+
+### Nginx常用命令
+```bash
+/usr/local/bin/nginx -s reload  # 重新载入配置文件，Nginx服务不会中断
+/usr/local/bin/nginx -s reopen  # 重启 Nginx，会造成服务一瞬间的中断
+/usr/local/bin/nginx -s stop    # 停止 Nginx
+```
 
 ## 后端框架
 ### Flask(Python)

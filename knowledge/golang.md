@@ -14,6 +14,7 @@
 	- [方法集](#方法集)
 	- [多态](#多态)
 	- [嵌入类型](#嵌入类型)
+	- [异常处理](#异常处理)
 	- [并发](#并发)
 		- [进程和线程](#进程和线程)
 		- [Go调度器如何管理goroutine](#Go调度器如何管理goroutine)
@@ -333,7 +334,6 @@ bucket是一个链表结构，每一个bucket后面连接的bucket表示bucket�
 说到散列表，一定要有散列函数，散列函数是散列表中存取元素的关键。Go语言的映射中也有这样的散列函数(或叫哈希函数)。它把散列值分成了高8位和低8位两部分，如下图所示。
 
 ![](../pictures/golang/hash_value.png)
-
 
 映射的存取过程：在存储、删除或者查找键值对的时候，都要先将指定的键传给散列函数得到一个散列值，然后根据散列值的低8位选中对应的桶，最终再根据桶中的索引(散列值的高8位)将键值对分布到这个桶里。随着映射中存储的增加，索引分布越均匀，访问键值对的速度就越快。因此，映射通过设置合理数量的桶平衡键值对的分布。整个过程如下图所示。<br>
 
@@ -682,6 +682,57 @@ func sendNotification(n notifier){
 }
 ```
 如果外部类型实现了同名的方法，内部类型的实现不会被提升。不过内部类型的值一直存在，因此还可以直接访问内部类型的值，来调用没有被提升的内部类型实现的方法。
+
+## 异常处理
+Golang的异常处理组合panic，defer，recover。
+
+defer<br>
+作用：defer表达式通常用来处理一些清理和释放资源的操作。<br>
+调用顺序：defer表达式会被放入一个类似于栈(stack)的结构，所以调用的顺序是后进先出的。
+
+panic：在go中，当程序出现异常时，会发生panic。当发生panic后，需要使用recover捕获，如果没有捕获，则程序退出。
+
+recover：捕获异常。
+
+* defer需要放在panic之前定义，另外recover只有在defer调用的函数中才有效。
+* recover处理异常后，逻辑并不会恢复到panic那个点去，函数跑到defer之后的那个点。
+* 多个defer会形成defer栈，后定义的defer语句会被最先调用。
+
+recover用来对panic的异常进行捕获。panic用于向上传递异常，执行顺序是在defer之后。
+```Golang
+package main 
+import "fmt" 
+import "runtime/debug" 
+ 
+func fun() {
+    fmt.Println("fun begin")
+ 
+	defer func() {
+			//捕获panic
+		if err := recover(); err != nil {
+			debug.PrintStack()
+			//获取堆栈信息的字符串
+			fmt.Println("xxx", string(debug.Stack()))
+		}
+	}()
+ 
+	var p *int
+	//产生异常
+	*p = 0
+	fmt.Println("fun end")
+ 	//这里不执行
+	for {}
+}
+ 
+func main() {
+	fmt.Println("main begin")
+	fun()
+	//因为panic被recover捕获，所以下面继续执行
+	fmt.Println("main end")
+ 
+	for {}
+}
+```
 
 ## 并发
 Go语言的并发同步模型通过在goroutine之间传递数据来传递消息，而不是对数据进行加锁来实现同步访问。用于在goroutine之间同步和传递数据的关键数据类型叫作通道（channel）。
@@ -1325,8 +1376,24 @@ golang是编译型、静态数据类型语言，python是解释型、动态数�
 ### 哪些不能作为映射的键
 不可变的可以作为映射的键，如数字、字符串、数组，只包含不可变的结构体。可变的不能作为映射的键，比如切片，映射，函数，以及包含可变的结构体。
 ## new和make的区别
-二者都是内存的分配（堆上），但是make只用于slice、map以及channel的初始化（非零值）；而new用于类型的内存分配，并且内存置为零。<br>
-make返回的还是这三个引用类型本身；而new返回的是指向类型的指针。
+new和make都在堆上分配内存。
+* new可以分配任意类型的数据；make只能用来分配及初始化类型为slice、map、channel的数据。
+* new分配返回的是指针，即类型*T；make返回引用，即T。
+* new分配的空间被清零，不会被初始化；make分配后，会进行初始化（非零值），**slice、map、channel为引用类型，在使用前必须初始化**。
+
+内存是否为零值
+* new：以下分配了一个slice结构，但是结构中的应该指向底层数组的ptr指针为空，故实际不能往这个slice里面存取数据。
+```Golang
+var p *[]int = new([]int)
+//或 p := new([]int)
+```
+* make：以下分配了一个slice结构，且结构中的应该指向底层数组的ptr指针已经指向了某个底层数组，这个底层数组应该已经分配了，故这个slice已经可以使用了。
+```Golang
+var v []int = make([]int, 0)
+//或 v := make([]int, 0)
+```
+
+用new来分配slice的意义不大，因为没有恰当的初始化，无法直接使用。有附带空间的结构，使用make来初始化，可以完成内部指针初始化，其后可以立即使用。
 ## 方法、接口
 方法能给用户定义的类型添加新的行为。方法实际上也是函数，只是在声明时，在关键字func和方法名之间增加了一个参数。<br>
 接口是声明了一组行为并支持多态的类型。

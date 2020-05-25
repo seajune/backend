@@ -24,6 +24,7 @@
         - [关系型与非关系型数据库的区别](#关系型与非关系型数据库的区别)
         - [MySQL与PostgreSQL的区别](#MySQL与PostgreSQL的区别) 
         - [Redis与MySQL的区别](#Redis与MySQL的区别)
+        - [为什么MongoDB使用B树](#为什么MongoDB使用B树)
 - [分布式架构](#分布式架构)
 - [算法与数据结构](#算法与数据结构)
 - [工具](#工具)
@@ -34,6 +35,7 @@
         - [用途](#用途)
         - [Dokcer与虚拟机的区别](#Dokcer与虚拟机的区别)
         - [应用到微服务](#应用到微服务)
+    - [K8S](#K8S)
     - [Git](#Git)
         - [查看改动](#查看改动)
         - [git-stash](#git-stash)
@@ -106,6 +108,7 @@
 ## MySQL
 [mysql.md](./knowledge/mysql.md)
 ## PostgreSQL
+[postgresql..md](./knowledge/postgresql.md)
 ## Redis
 [redis.md](./knowledge/redis.md)
 ## 面试（数据库）
@@ -126,6 +129,8 @@ PostgreSQL具备更高的可靠性，对数据一致性完整性的支持高于M
 * MySQL基于磁盘，读写速度没有Redis快，但是不受空间容量限制，性价比高。
 
 大多数的应用场景是MySQL（主）+Redis（辅），MySQL做为主存储，Redis用于缓存，加快访问速度。需要高性能的地方使用Redis，不需要高性能的地方使用MySQL。存储数据在MySQL和Redis之间做同步。
+### 为什么MongoDB使用B树
+MongoDB是非关系型数据库。虽然遍历数据的查询是相对常见的，但是MongoDB认为查询单个数据记录远比遍历数据更加常见，由于B树的非叶结点也可以存储数据，所以查询一条数据所需要的平均随机IO次数会比B+树少，使用B树的MongoDB在类似场景中的查询速度就会比MySQL快。
 
 # 分布式架构
 [distributed_architecture.md](./knowledge/distributed_architecture.md)
@@ -181,6 +186,9 @@ $ docker-compose up
 # 关闭所有服务
 $ docker-compose stop
 ```
+
+## K8S
+K8S，就是基于容器的集群管理平台。
 
 ## Git
 
