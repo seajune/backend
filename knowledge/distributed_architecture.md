@@ -503,7 +503,7 @@ MySQL的mysqli驱动提供了预编译语句的支持，不同的程序语言，
 * 大型软件公司，根据具体使用在RocketMq和Kafka之间二选一。一方面，大型软件公司，具备足够的资金搭建分布式环境，也具备足够大的数据量。针对RocketMQ，大型软件公司也可以抽出人手对RocketMQ进行定制化开发，毕竟国内有能力改JAVA源码的人，还是相当多的。至于Kafka，根据业务场景选择，如果有日志采集功能，肯定是首选Kafka了。具体该选哪个，看使用场景。
 
 ## **Kafka**
-[参考](https://zhuanlan.zhihu.com/p/68052232)
+[参考1](https://zhuanlan.zhihu.com/p/68052232) [参考2](https://www.iteblog.com/archives/2605.html) 
 
 ![](../pictures/distributed_architecture/kafka_frame.jpg)
 
@@ -522,7 +522,8 @@ MySQL的mysqli驱动提供了预编译语句的支持，不同的程序语言，
 工作流程
 1. 发送数据：Producer往leader分区写入数据，follower分区主动去leader分区进行同步。producer采用push模式将数据发布到broker，每条消息追加到分区中，顺序写入磁盘，所以保证同一分区内的数据是有序的。
 2. 保存数据：Producer将数据写入kafka后，集群就需要对数据进行保存了。kafka将数据保存在磁盘。Kafka初始会单独开辟一块磁盘空间，顺序写入数据（效率比随机写入高）。
-3. 消费数据：一个topic被同一个消费组的不同消费者消费，相当于是队列模式。被不同消费组消费相当于是订阅模式。消费者组订阅topic，消费者消费消息要提交offset（消费偏移量）。多个消费者可以组成一个消费者组（consumer group），每个消费者组都有一个组id。同一个topic的数据，会广播给不同的消费者组。同一个消费组者的消费者可以消费同一topic下不同分区的数据，但是不会组内多个消费者消费同一分区的数据（属于重复消费）。一个topic中的消息只会被一个消费者组消费一次。在实际的应用中，建议消费者组的consumer的数量与partition的数量一致。
+3. 消费数据：采用pull模式消费消息。消费者消费消息要提交offset（消费偏移量）。多个消费者可以组成一个消费者组（consumer group），每个消费者组都有一个组id。同一个topic的数据，会广播给不同的消费者组。同一个消费组者的消费者可以消费同一topic下不同分区的数据，但是不会组内多个消费者消费同一分区的数据（属于重复消费）。一个topic中的消息只会被一个消费者（消费者线程，一个消费者可能有多个线程）组消费一次。在实际的应用中，建议消费者组的consumer的数量与partition的数量一致。<br>
+pull有个缺点是，如果broker没有可供消费的消息，将导致consumer不断在循环中轮询，直到新消息到达。为了避免这点，Kafka有个参数可以让consumer阻塞直到新消息到达，当然也可以阻塞直到消息的数量达到某个特定的量，这样就可以批量消费。
 
 分区的目的
 * 方便扩展：一个topic可以有多个partition，所以可以通过扩展机器去轻松的应对日益增长的数据量。
@@ -540,7 +541,7 @@ producer选择分发partition的原则：
 * kafka的数据文件是二进制格式的文件，二进制的文件大小相对于文本文件更小，所以可以减少数据传输，复制量，提高数据传输速度，节省网络带宽。
 
 kafka副本同步机制[参考](https://blog.csdn.net/honglei915/article/details/37565289)<br>
-> 所有的followers都复制leader的日志，日志中的消息和顺序都和leader中的一致。flowers向普通的consumer那样从leader那里拉取消息并保存在自己的日志文件中。
+> 所有的followers都复制leader的预写日志，日志中的消息和顺序都和leader中的一致。flowers向普通的consumer那样从leader那里拉取消息并保存在自己的日志文件中。
 只有当消息被所有的副本加入到日志中时，才算是“committed”，只有committed的消息才会发送给consumer。Kafka保证只要有一个“同步中”的节点，“committed”的消息就不会丢失。
 
 > “同步中”的节点满足两个条件：
@@ -550,8 +551,13 @@ kafka副本同步机制[参考](https://blog.csdn.net/honglei915/article/details
 > Kafaka动态维护了一个同步状态的副本的集合（a set of in-sync replicas），简称ISR，在这个集合中的节点都是和leader保持高度一致的，任何一条消息必须被这个集合中的每个节点读取并追加到日志中了，才会通知外部这个消息已经被提交了。因此这个集合中的任何一个节点随时都可以被选为leader。ISR在ZooKeeper中维护。<br>
 ISR的成员是动态的，消息复制延迟受最慢的follower限制，重要的是快速检测慢副本，如果follower”落后”太多或者失效，leader将会把它从ISR移除。如果一个节点被淘汰了，当它重新达到“同步中”的状态时，可以重新加入ISR。
 
+ISR（In-Sync Replicas）：副本同步队列，由leader维护。<br>
+OSR（Out-of-Sync Replicas）：follower从leader同步数据有一些延迟，超过相应的阈值会把 follower 剔除出 ISR, 存入OSR列表，新加入的follower也会先存放在OSR中。<br>
+AR：Assigned Replicas 所有副本。<br>
+AR = ISR + OSR
+
 consumer如何消费数据：<br>
-索引文件的文件内容是offset的稀疏索引，在消费者消费消息时，broker根据消费者给定的offset，基于二分查找先在索引文件（index文件）找到该offset对应的数据segment文件的位置（log文件），然后基于该位置（或往下）找到对应的数据。
+索引文件的文件内容是offset的稀疏索引，在消费者消费消息时，broker根据消费者给定的offset，基于二分查找先在索引文件（index文件）找到该offset对应的数据segment文件的位置（log文件），然后基于该位置（或往下）找到对应的数据。只有High Water Mark以上的消息才支持Consumer读取，而High Water Mark取决于ISR列表里面偏移量最小的分区，防止出现数据不一致性问题。
 
 消费者为什么要提交offset？<br>
 当消费者崩溃或者有新的消费者加入，那么就会触发再均衡（rebalance），完成再均衡后，每个消费者可能会分配到新的分区，而不是之前处理那个，为了能够继续之前的工作，消费者需要读取每个partition最后一次提交的偏移量，然后从偏移量指定的地方继续处理。<br>
