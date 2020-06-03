@@ -38,14 +38,17 @@
     - [K8S](#K8S)
     - [Git](#Git)
         - [查看改动](#查看改动)
-        - [git-stash](#git-stash)
-        - [git-pull](#git-pull)
-        - [git-rebase](#git-rebase)
+        - [git_stash](#git-stash)
+        - [git_pull](#git-pull)
+        - [git_rebase](#git-rebase)
+        - [git_cherry-pick](#git-cherry-pick)
 
 ---
 # 参考
 ## 书籍
-高性能MySQL
+高性能MySQL<br>
+Redis开发与运维<br>
+Redis深度历险：核心原理与应用实践<br>
 
 # 语言
 ## Golang
@@ -243,3 +246,13 @@ $ git merge origin/next
 * 在过时分支上开发。
 
 危险操作：因为改变了历史，要保证改分支只有自己使用。
+
+### git cherry-pick
+能够把另一个分支的一个或多个提交复制到当前分支，具体使用如下：
+1. 首先git checkout到另一个分支。
+2. 然后使用git log找到想要复制的commit的id，记录下来。
+3. 切换到自己分支，使用git cherry-pick [上面记录的commit id]。
+
+如果想要复制多个, 使用git cherry-pick (commitid1..commitid100]，commitid1为想复制的最老提交(不包括)，commitid100为想复制的最新提交(包括)。
+
+如果想要包括commitid1，那么在commitid1后加^即可，即 git cherry-pick [commitid1^..commitid100]。
