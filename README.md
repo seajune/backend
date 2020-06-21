@@ -5,6 +5,7 @@
 - [语言](#语言)
     - [Golang](#Golang)
     - [Python](#Python)
+    - [PHP](#PHP)
     - [C++](#C++)
     - [面试](#面试（语言）)
         - [解释型语言和编译型语言的区别](#解释型语言和编译型语言的区别)
@@ -55,6 +56,8 @@ Redis深度历险：核心原理与应用实践<br>
 [golang.md](./knowledge/golang.md)
 ## Python
 [python.md](./knowledge/python.md)
+## PHP
+[php.md](./knowledge/php.md)
 ## C++
 [c++.md](./knowledge/c++.md)
 ## 面试（语言）
