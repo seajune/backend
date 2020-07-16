@@ -15,6 +15,7 @@
         - [执行运算符](#执行运算符)
         - [字符串运算符](#字符串运算符)
         - [数组运算符](#数组运算符)
+        - [??和?:的区别](#??和?:的区别)
     - [流程控制](#流程控制)
         - [switch](#switch)
         - [include](#include)
@@ -142,6 +143,11 @@ PHP的引用允许用两个变量来指向同一个内容。
 * 连接运算符（“.”），它返回其左右参数连接后的字符串。
 * 连接赋值运算符（“.=”），它将右边参数附加到左边的参数之后。
 ### 数组运算符
+### ??和?:的区别
+* $a ?? 0 等同于 isset($a) ? $a : 0。
+* $a ?: 0 等同于 $a ? $a : 0。
+* empty: 判断一个变量是否为空(null、false、00、0、’0′、』这类，都会返回true)。
+* isset: 判断一个变量是否设置(值为false、00、0、’0′、』这类，也会返回true)。
 
 ## 流程控制
 ### switch
@@ -307,6 +313,63 @@ class BadTemplate implements iTemplate
 
 常量<br>
 接口中也可以定义常量。接口常量和类常量的使用完全相同，但是不能被子类或子接口所覆盖。
+### 重载
+PHP所提供的重载（overloading）是指动态地创建类属性和方法。是通过**魔术方法**（magic methods）来实现的。与大多数面向对象语言中“重载”的定义不一样。
+
+**当调用当前环境下未定义或不可见的类属性或方法时，重载方法会被调用**。
+
+所有的重载方法都必须被声明为public。
+
+这些魔术方法的参数都不能通过引用传递。
+
+* 属性重载<br>
+public __set ( string $name , mixed $value ) : void<br>
+public __get ( string $name ) : mixed<br>
+public __isset ( string $name ) : bool<br>
+public __unset ( string $name ) : void<br>
+在给不可访问属性赋值时，__set() 会被调用。<br>
+读取不可访问属性的值时，__get() 会被调用。<br>
+当对不可访问属性调用 isset() 或 empty() 时，__isset() 会被调用。<br>
+当对不可访问属性调用 unset() 时，__unset() 会被调用。<br>
+参数 $name 是指要操作的变量名称。__set() 方法的 $value 参数指定了 $name 变量的值。
+
+属性重载只能在对象中进行。在静态方法中，这些魔术方法将不会被调用。所以这些方法都不能被声明为static。
+* 方法重载<br>
+public __call ( string $name , array $arguments ) : mixed<br>
+public static __callStatic ( string $name , array $arguments ) : mixed<br>
+在对象中调用一个不可访问方法时，__call()会被调用。<br>
+在静态上下文中调用一个不可访问方法时，__callStatic() 会被调用。<br>
+$name 参数是要调用的方法名称。$arguments 参数是一个枚举数组，包含着要传递给方法 $name 的参数。
+```php
+<?php
+class MethodTest 
+{
+    public function __call($name, $arguments) 
+    {
+        // 注意: $name 的值区分大小写
+        echo "Calling object method '$name' "
+             . implode(', ', $arguments). "\n";
+    }
+
+    /**  PHP 5.3.0之后版本  */
+    public static function __callStatic($name, $arguments) 
+    {
+        // 注意: $name 的值区分大小写
+        echo "Calling static method '$name' "
+             . implode(', ', $arguments). "\n";
+    }
+}
+
+$obj = new MethodTest;
+$obj->runTest('in object context');
+
+MethodTest::runTest('in static context');  // PHP 5.3.0之后版本
+?>
+//输出
+Calling object method 'runTest' in object context
+Calling static method 'runTest' in static context
+```
+
 ### 遍历对象
 PHP5提供了一种定义对象的方法使其可以通过单元列表来遍历，例如用foreach语句。默认情况下，所有可见属性都将被用于遍历。
 ```php
