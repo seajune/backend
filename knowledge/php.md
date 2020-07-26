@@ -45,6 +45,20 @@
         - [名称解析](#名称解析)
     - [异常处理](#异常处理)
     - [生成器](#生成器)
+    - [Composer](#Composer)
+        - [下载](#下载)
+        - [局部安装](#局部安装)
+        - [全局安装](#全局安装)
+        - [Packagist镜像](#Packagist镜像)
+            - [镜像用法](#镜像用法)
+            - [镜像原理](#镜像原理)
+            - [解除镜象](#解除镜象)
+        - [基本用法](#基本用法)
+            - [composer.json：项目安装](#composer.json：项目安装)
+            - [安装依赖包](#安装依赖包)
+            - [composer.lock：锁文件](#composer.lock：锁文件)
+        - [命令行](#命令行)
+        - [composer.json架构](#composer.json架构)
 - [注意](#注意)
     - [php中字符串和整数比较的操作方法](#php中字符串和整数比较的操作方法)
     - [比较浮点数](#比较浮点数)
@@ -621,6 +635,93 @@ foreach ($generator as $value) {
 }
 ?>
 ```
+## Composer
+[参考官网](https://pkg.phpcomposer.com/)<br>
+Composer是PHP用来管理依赖（dependency）关系的工具。可以在项目中声明所依赖的外部工具库（libraries），Composer会安装这些依赖的库文件。
+### 下载
+```bash
+php -r "copy('https://install.phpcomposer.com/installer', 'composer-setup.php');" #下载安装脚本 － composer-setup.php － 到当前目录。
+```
+```bash
+php composer-setup.php #执行安装过程。
+```
+```bash
+php -r "unlink('composer-setup.php');" #删除安装脚本。
+```
+### 局部安装
+上述下载Composer的过程正确执行完毕后，可以将composer.phar文件复制到任意目录（比如项目根目录下），然后通过 php composer.phar 指令即可使用Composer了！
+### 全局安装
+全局安装是将Composer安装到系统环境变量PATH所包含的路径下面，然后就能够在命令行窗口中直接执行composer命令了。
+```bash
+sudo mv composer.phar /usr/local/bin/composer #Mac或Linux系统
+```
+### Packagist镜像
+#### 镜像用法
+有两种方式启用本镜像服务：
+* 系统全局配置：即将配置信息添加到Composer的全局配置文件config.json 中。
+```bash
+composer config -g repo.packagist composer https://packagist.phpcomposer.com
+```
+* 单个项目配置：将配置信息添加到某个项目的composer.json文件中。
+打开控制台（Linux、Mac用户），进入项目的根目录（也就是 composer.json文件所在目录），执行如下命令：
+```bash
+composer config repo.packagist composer https://packagist.phpcomposer.com
+```
+上述命令将会在当前项目中的composer.json文件的末尾自动添加镜像的配置信息。也可以手工添加：
+```json
+"repositories": {
+    "packagist": {
+        "type": "composer",
+        "url": "https://packagist.phpcomposer.com"
+    }
+}
+```
+#### 镜像原理
+一般情况下，安装包的数据（主要是zip文件）一般是从github.com上下载的，安装包的元数据是从packagist.org上下载的。<br>
+然而，由于众所周知的原因，国外的网站连接速度很慢，并且随时可能被“墙”甚至“不存在”。<br>
+“Packagist 中国全量镜像”所做的就是缓存所有安装包和元数据到国内的机房并通过国内的CDN进行加速，这样就不必再去向国外的网站发起请求，从而达到加速 composer install 以及 composer update 的过程，并且更加快速、稳定。因此，即使 packagist.org、github.com 发生故障（主要是连接速度太慢和被墙），仍然可以下载、更新安装包。
+#### 解除镜象
+如果需要解除镜像并恢复到packagist官方源，请执行以下命令：
+```bash
+composer config -g --unset repos.packagist
+```
+执行之后，composer会利用默认值（也就是官方源）重置源地址。<br>
+将来如果还需要使用镜像的话，只需要根据前面的“镜像用法”中介绍的方法再次设置镜像地址即可。
+### 基本用法
+#### composer.json：项目安装
+要开始在项目中使用Composer，只需要一个composer.json文件。该文件包含了项目的依赖和其它的一些元数据。
+```json
+{
+    "require": {
+        "monolog/monolog": "1.0.*"
+    }
+}
+```
+require 需要一个包名称（例如 monolog/monolog）映射到包版本（例如 1.0.*）的对象。
+#### 安装依赖包
+```bash
+php composer.phar install
+```
+把第三方的代码放到一个指定的目录vendor。<br>
+如果正在使用Git来管理项目，可能要添加vendor到 .gitignore 文件中。<br>
+将创建一个 composer.lock 文件到项目的根目录中。
+#### composer.lock：锁文件
+在安装依赖后，Composer将把安装时确切的版本号列表写入composer.lock文件。这将锁定改项目的特定版本。<br>
+提交应用程序的 composer.lock （包括 composer.json）到版本库中。这是非常重要的，因为 install 命令将会检查锁文件是否存在，如果存在，它将下载指定的版本（忽略 composer.json 文件中的定义）。如果不存在 composer.lock 文件，Composer 将读取 composer.json 并创建锁文件。<br>
+这意味着如果你的依赖更新了新的版本，你将不会获得任何更新。此时要更新你的依赖版本请使用 update 命令。这将获取最新匹配的版本（根据你的 composer.json 文件）并将新版本更新进锁文件。
+```bash
+php composer.phar update
+```
+如果只想安装或更新一个依赖，可以白名单它们：
+```bash
+php composer.phar update monolog/monolog [...]
+```
+### 命令行
+[参考](https://docs.phpcomposer.com/03-cli.html)
+### composer.json架构
+[参考](https://docs.phpcomposer.com/04-schema.html)
+
+[更多详见](https://docs.phpcomposer.com/)
 
 # 注意
 ## php中字符串和整数比较的操作方法
