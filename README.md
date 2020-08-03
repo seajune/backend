@@ -259,3 +259,7 @@ $ git merge origin/next
 如果想要复制多个, 使用git cherry-pick (commitid1..commitid100]，commitid1为想复制的最老提交(不包括)，commitid100为想复制的最新提交(包括)。
 
 如果想要包括commitid1，那么在commitid1后加^即可，即 git cherry-pick [commitid1^..commitid100]。
+
+### commit
+* 回滚到之前某一commit：git reset --hard commit_id
+* 修改commit的注释：git commit --amend
