@@ -27,6 +27,9 @@
 		- [内存分配](#内存分配)
 		- [逃逸分析](#逃逸分析)
 		- [垃圾回收](#垃圾回收)
+	- [包管理工具](#包管理工具)
+		- [go module](#module)
+		- [go glide](#glide)
 - [面试](#面试)
 	- [golang语言的特点以及与其他语言的区别](#golang语言的特点以及与其他语言的区别)
 	- [golang的编译过程](#golang的编译过程)
@@ -1365,6 +1368,16 @@ GC流程
 4. Mark阶段，执行上述的三色标记法，直到没有灰色对象。
 5. Mark termination阶段，开启STW，回头重新扫描root区域新变量，对他们进行标记。
 6. Sweep阶段，关闭STW和写屏障，对白色对象进行清除。
+
+## 包管理工具
+[Go依赖包管理工具对比](https://studygolang.com/articles/10523)
+### module
+参考：<br>
+[Go语言go mod包依赖管理工具使用详解](http://c.biancheng.net/view/5712.html)<br>
+[Go语言编译与工具](http://c.biancheng.net/golang/build/)
+### glide
+参考：<br>
+[Go的包管理工具：glide](https://www.jianshu.com/p/8b80208a5034)
 
 # 面试
 ## golang语言的特点以及与其他语言的区别
