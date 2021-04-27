@@ -43,6 +43,9 @@
         - [git_pull](#git-pull)
         - [git_rebase](#git-rebase)
         - [git_cherry-pick](#git-cherry-pick)
+    - [cloc](#cloc)
+        - [安装](#安装)
+        - [使用](#使用)
 
 ---
 # 参考
@@ -263,3 +266,25 @@ $ git merge origin/next
 ### commit
 * 回滚到之前某一commit：git reset --hard commit_id
 * 修改commit的注释：git commit --amend
+
+## cloc
+代码统计工具<br>
+[github地址](https://github.com/AlDanial/cloc)
+### 安装
+```shell
+brew isntall cloc
+```
+### 使用
+```shell
+#统计当前目录下代码
+cloc .
+#使用--exclude-dir过滤某些路径
+cloc . --exclude-dir=vendor
+#查看哪些文件代码量比较大，使用：--by-file参数
+cloc . --by-file |head -n 30
+```
+参考：<br>
+[代码统计工具cloc基本使用](https://zdyxry.github.io/2019/08/09/%E4%BB%A3%E7%A0%81%E7%BB%9F%E8%AE%A1%E5%B7%A5%E5%85%B7-cloc-%E5%9F%BA%E6%9C%AC%E4%BD%BF%E7%94%A8/)<br>
+[cloc查看代码的行数](https://blog.csdn.net/qq_29828623/article/details/81207317)<br>
+
+更多使用见[github地址](https://github.com/AlDanial/cloc)

@@ -51,11 +51,20 @@
 # 基础
 ## 简介
 golang是编译型语言，静态类型语言。<br>
-过程：先进行词法分析、语法分析、语义分析（包括类型检查等），生成中间码，再进行代码优化，最后生成机器码。<br>
+
+编译过程：词法与语法分析、类型检查和 AST 转换、通用 SSA 生成和最后的机器代码生成。<br>
+1. 词法与语法分析<br>
+词法分析是将字符序列转换为标记（token）序列的过程。<br>
+语法分析是根据某种特定的形式文法（Grammar）对 Token 序列构成的输入文本进行分析并确定其语法结构的过程。
+2. 类型检查<br>
+在词法和语法分析之后我们得到了每个文件对应的抽象语法树，随后的类型检查会遍历抽象语法树中的节点，对每个节点的类型进行检验，找出其中存在的语法错误，在这个过程中也可能会对抽象语法树进行改写，这不仅能够去除一些不会被执行的代码、对代码进行优化以提高执行效率，而且也会修改 make、new 等关键字对应节点的操作类型。
+3. 中间代码生成<br>
+中间代码的生成过程是从 AST 抽象语法树到 SSA 中间代码的转换过程，在这期间会对语法树中的关键字再进行改写，改写后的语法树会经过多轮处理转变成最后的 SSA 中间代码。
+4. 机器码生成<br>
+根据 SSA 中间代码生成机器码，这里谈的机器码是在目标 CPU 架构上能够运行的二进制代码。
 
 参考：
-[Golang之编译器原理](https://dayutalk.cn/2019/10/24/%E8%B5%B0%E8%BF%9BGolang%E4%B9%8B%E7%BC%96%E8%AF%91%E5%99%A8%E5%8E%9F%E7%90%86/)&ensp;&ensp;
-[Golang程序编译执行流程](https://www.jianshu.com/p/b61ddf8ca514)
+[Go语言编译原理](https://draveness.me/golang/docs/part1-prerequisite/ch02-compile/golang-compile-intro/)
 
 ![](../pictures/golang/golang_compile_1.png)
 
@@ -132,6 +141,7 @@ array := [5]int{10,20,30,40,50}
 //声明一个整型数组
 //用具体值初始化每个元素
 //容量由初始化值的数量决定
+//会在编译期间推导数组大小
 array := [...]int{10,20,30,40,50}
 
 //方式四
@@ -142,7 +152,7 @@ array := [5]int{1:10, 2:20}
 ```
 
 数组之间的赋值<br>
-数组变量的类型包括数组长度和每个元素的类型。只有这两部分都相同的数组，才是类型相同的数组，才能互相赋值。<br>
+**数组变量的类型包括数组长度和每个元素的类型。只有这两部分都相同的数组，才是类型相同的数组，才能互相赋值。**<br>
 
 复制
 ```golang
@@ -152,6 +162,12 @@ array2 = array1 //拷贝副本，数组修改没有联动性
 
 在函数间传递数组<br>
 如果是值传递，要复制整个数组。如果传递数组的指针，会更有效地利用内存，性能也更好。但是如果改变指针的值，会改变共享的内存。使用切片能更好地处理这类共享问题。
+
+
+在不考虑逃逸分析的情况下，如果数组中元素的个数小于或者等于 4 个，那么所有的变量会直接在栈上初始化，如果数组元素大于 4 个，变量就会在静态存储区初始化然后拷贝到栈上，这些转换后的代码才会继续进入中间代码生成和机器码生成两个阶段，最后生成可以执行的二进制文件。[参考](https://draveness.me/golang/docs/part2-foundation/ch03-datastructure/golang-array/)
+
+对数组的访问和赋值需要同时依赖编译器和运行时，它的大多数操作在编译期间都会转换成直接读写内存，在中间代码生成期间，编译器还会插入运行时方法 runtime.panicIndex 调用防止发生越界错误。
+[参考](https://draveness.me/golang/docs/part2-foundation/ch03-datastructure/golang-array/)
 
 ### 切片
 **特点**<br>
@@ -319,6 +335,15 @@ func foo(slice []int)[]int{
 ![](../pictures/golang/slice_in_func.png)
 
 在函数间传递24字节的数据会非常快速、简单。这也是切片效率高的地方。不需要传递指针和处理复杂的语法，只需要复制切片，按想要的方式修改数据，然后传递回一份新的切片副本。
+
+切片的很多功能都是由运行时实现的，无论是初始化切片，还是对切片进行追加或扩容都需要运行时的支持，需要注意的是在遇到大切片扩容或者复制时可能会发生大规模的内存拷贝，一定要减少类似操作避免影响程序的性能。[参考](https://draveness.me/golang/docs/part2-foundation/ch03-datastructure/golang-array-and-slice/)
+
+**slice扩容**<br>
+append的时候发生扩容的动作<br>
+- append单个元素，或者append少量的多个元素，这里的少量指double之后的容量能容纳，这样就会走以下扩容流程，不足1024，双倍扩容，超过1024的，1.25倍扩容。
+- 若是append多个元素，且double后的容量不能容纳，直接使用预估的容量。<br>
+
+此外，以上两个分支得到新容量后，均需要根据slice的类型size，算出新的容量所需的内存情况capmem，然后再进行capmem向上取整（内存对齐），得到新的所需内存，除上类型size，得到真正的最终容量,作为新的slice的容量。[参考](https://juejin.cn/post/6844903812331732999)
 
 ### 映射
 映射是一种数据结构，用于存储一系列无序的键值对。<br>
@@ -738,7 +763,8 @@ func main() {
 ```
 
 ## 并发
-Go语言的并发同步模型通过在goroutine之间传递数据来传递消息，而不是对数据进行加锁来实现同步访问。用于在goroutine之间同步和传递数据的关键数据类型叫作通道（channel）。
+Go语言的并发同步模型通过在goroutine之间传递数据来传递消息，而不是对数据进行加锁来实现同步访问。用于在goroutine之间同步和传递数据的关键数据类型叫作通道（channel）。<br>
+goroutine是Go中最基本的执行单元。每个Go程序至少有一个goroutine：主goroutine。当程序启动时，它会自动创建。
 
 ### **进程和线程**
 当运行一个应用程序（如一个IDE或者编辑器）的时候，操作系统会为这个应用程序启动一个进程。可以将这个进程看作一个包含了应用程序在运行中需要用到和维护的各种资源的容器。这些资源包括但不限于内存地址空间、文件和设备的句柄以及线程。<br>
@@ -1288,6 +1314,39 @@ func worker(tasks chan string, worker int){
 }
 ```
 **当通道关闭后，goroutine依旧可以从通道接收数据，但是不能再向通道里发送数据**。能够从已经关闭的通道接收数据这一点非常重要，因为这允许通道关闭后依旧能取出其中缓冲的全部值，而不会有数据丢失。
+
+## Context
+上下文<br>
+在网络编程下，当接收到一个网络请求Request，处理Request时，我们可能需要开启不同的Goroutine来获取数据与逻辑处理，即一个请求Request，会在多个Goroutine中处理。而这些Goroutine可能需要共享Request的一些信息；同时当Request被取消或者超时的时候，就需要所有为这个request服务的gorountine被快速回收。
+
+context包不仅实现了在程序单元之间共享状态变量的方法，同时能通过简单的方法，使我们在被调用程序单元的外部，通过设置ctx变量值，将过期或撤销这些信号传递给被调用的程序单元。在网络编程中，若存在A调用B的API, B再调用C的API，若A调用B取消，那也要取消B调用C，通过在A,B,C的API调用之间传递Context，以及判断其状态，就能解决此问题，这是为什么gRPC的接口中带上ctx context.Context参数的原因之一。
+
+context包通过构建树型关系的Context，来达到上一层Goroutine能对传递给下一层Goroutine的控制。对于处理一个Request请求操作，需要采用context来层层控制Goroutine，以及传递一些变量来共享。
+* Context对象的生存周期一般仅为一个请求的处理周期。即针对一个请求创建一个Context变量（它为Context树结构的根）；在请求处理结束后，撤销此ctx变量，释放资源。
+* 每次创建一个Goroutine，要么将原有的Context传递给Goroutine，要么创建一个子Context并传递给Goroutine。
+* Context能灵活地存储不同类型、不同数目的值，并且使多个Goroutine安全地读写其中的值。
+* 当通过父Context对象创建子Context对象时，可同时获得子Context的一个撤销函数，这样父Context对象的创建环境就获得了对子Context将要被传递到的Goroutine的撤销权。
+
+在子Context被传递到的goroutine中，应该对该子Context的Done信道（channel）进行监控，一旦该信道被关闭（即上层运行环境撤销了本goroutine的执行），应主动终止对当前请求信息的处理，释放资源并返回。
+
+
+使用方法<br>
+一般使用的根节点都是直接使用context.Background。<br>
+后边可以与WithCancel，DeadLine，TimeOut配合使用。Parent context可以通过cancel fun等来控制其子context的结束（也对应着子gorountine），并且层层的gorountine需要判断Done。
+
+使用注意<br>
+cancel类型的context在使用的最后一定要调用cancel释放资源，不然有可能Done没有被使用，导致资源无法被释放。或者parent对应的context Done close了。所有在代码中应该尽量及早的cancel对应context
+
+
+
+
+参考：<br>
+[理解GO CONTEXT机制](https://www.cnblogs.com/zhangboyu/p/7456606.html_)<br>
+[Go context](https://www.jianshu.com/p/f5919c78b5cd)<br>
+
+
+
+
 
 ## 内存管理
 [参考](https://www.jianshu.com/p/7405b4e11ee2)
