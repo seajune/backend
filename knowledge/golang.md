@@ -1913,7 +1913,7 @@ replace golang.org/x/sys => github.com/golang/sys latest
 | **go mod vendor**      | 	将依赖复制到vendor下   |
 | go mod verify      | 	验证依赖是否正确   |
 | go mod why      | 	查找依赖   |
-<br>
+
 ###### go&nbsp;mod&nbsp;init
 初始化项目
 ```bash
