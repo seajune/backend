@@ -9,6 +9,10 @@
 		- [切片](#切片)
 		- [映射](#映射)
 		- [结构体](#结构体)
+	- [函数](#函数)
+		- [调用惯例](#调用惯例)
+		- [参数传递](#参数传递)
+	- [反射](#反射)
 	- [方法](#方法)
 	- [接口](#接口)
 	- [方法集](#方法集)
@@ -23,13 +27,30 @@
 		- [竞争状态](#竞争状态)
 		- [锁住共享资源](#锁住共享资源)
 		- [通道](#通道)
+		- [select](#select)
+	- [Context](#Context)
 	- [内存管理](#内存管理)
 		- [内存分配](#内存分配)
 		- [逃逸分析](#逃逸分析)
 		- [垃圾回收](#垃圾回收)
+	- [操作命令](#操作命令)
+		- [go get](#go&nbsp;get)
+		- [go test](#go&nbsp;test)
+		- [go clean](#go&nbsp;clean)
+		- [go list](#go&nbsp;list)
 	- [包管理工具](#包管理工具)
-		- [go module](#module)
-		- [go glide](#glide)
+		- [GOPATH和GOROOT](#GOPATH和GOROOT)
+		- [管理依赖包](#管理依赖包)
+		- [vendor](#vendor)
+		- [包管理工具](#包管理工具)
+			- [glide](#glide)
+			- [go modules](#go&nbsp;modules)
+				- [前提](#前提)
+				- [操作](#操作)
+				- [命令](#命令)
+					- [go mod init](#go&nbsp;mod&nbsp;init)
+					- [go mod tidy](#go&nbsp;mod&nbsp;tidy)
+					- [go mod edit](#go&nbsp;mod&nbsp;edit)
 - [面试](#面试)
 	- [golang语言的特点以及与其他语言的区别](#golang语言的特点以及与其他语言的区别)
 	- [golang的编译过程](#golang的编译过程)
@@ -119,6 +140,10 @@ func main() {
 ## 数据类型
 ### 数字
 ### 字符串
+因为字符串作为只读的类型，我们并不会直接向字符串直接追加元素改变其本身的内存空间，所有在字符串上的写入操作都是通过拷贝实现的。
+
+字符串和字节数组的转换<br>
+字符串和 []byte 中的内容虽然一样，但是字符串的内容是只读的，我们不能通过下标或者其他形式改变其中的数据，而 []byte 中的内容是可以读写的。不过无论从哪种类型转换到另一种都需要拷贝数据，而内存拷贝的性能损耗会随着字符串和 []byte 长度的增长而增长。
 ### 数组
 数组是一个**长度固定**的数据类型，用于存储一段具有相同的类型的元素的连续块。<br>
 
@@ -379,6 +404,10 @@ bucket是一个链表结构，每一个bucket后面连接的bucket表示bucket�
 对value做同样的操作；<br>
 把key对应的索引置为空。
 
+哈希表的扩容<br>
+哈希在存储元素过多时会触发扩容操作，每次都会将桶的数量翻倍，扩容过程不是原子的，而是通过 runtime.growWork 增量触发的，在扩容期间访问哈希表时会使用旧桶，向哈希表写入数据时会触发旧桶元素的分流，不会造成性能的瞬时巨大抖动，删除数据时会分流桶中的元素，分流结束之后会找到桶中的目标元素完成键值对的删除工作。除了这种正常的扩容之外，为了解决大量写入、删除造成的内存泄漏问题，哈希引入了 sameSizeGrow 这一机制，在出现较多溢出桶时会整理哈希的内存减少空间的占用。<br>
+扩容不是原子过程。
+
 创建和初始化<br>
 * 使用make声明映射<br>
 ```golang
@@ -466,6 +495,170 @@ lisa := user{"Lisa", "lisa@email.com", 123, true}
 **在函数间传递结构体**<br>
 **传递结构体给函数，是值传递，修改没有联动性；传递结构体的地址给函数时，是指针传递，修改有联动性。**
 
+## 函数
+### 调用惯例
+C 语言和 Go 语言在设计函数的调用惯例时选择了不同的实现。C 语言同时使用寄存器和栈传递参数，使用 eax 寄存器传递返回值；而 Go 语言使用栈传递参数和返回值。这两种设计的优点和缺点：
+> C 语言的方式能够极大地减少函数调用的额外开销，但是也增加了实现的复杂度；
+- CPU 访问栈的开销比访问寄存器高几十倍；
+- 需要单独处理函数参数过多的情况；
+> Go 语言的方式能够降低实现的复杂度并支持多返回值，但是牺牲了函数调用的性能；
+- 不需要考虑超过寄存器数量的参数应该如何传递；
+- 不需要考虑不同架构上的寄存器差异；
+- 函数入参和出参的内存空间需要在栈上进行分配；
+### 参数传递
+- 通过堆栈传递参数，入栈的顺序是从右到左，而参数的计算是从左到右；
+- 函数返回值通过堆栈传递并由调用者预先分配内存空间；
+
+Go 语言选择了**传值**的方式，无论是传递基本类型、结构体还是指针，都会对传递的参数进行拷贝。
+- 整型和数组类型
+```golang
+func myFunction(i int, arr [2]int) {
+	i = 29
+	arr[1] = 88
+	fmt.Printf("in my_funciton - i=(%d, %p) arr=(%v, %p)\n", i, &i, arr, &arr)
+}
+
+func main() {
+	i := 30
+	arr := [2]int{66, 77}
+	fmt.Printf("before calling - i=(%d, %p) arr=(%v, %p)\n", i, &i, arr, &arr)
+	myFunction(i, arr)
+	fmt.Printf("after  calling - i=(%d, %p) arr=(%v, %p)\n", i, &i, arr, &arr)
+}
+
+$ go run main.go
+before calling - i=(30, 0xc000072008) arr=([66 77], 0xc000072010)
+in my_funciton - i=(29, 0xc000072028) arr=([66 88], 0xc000072040)
+after  calling - i=(30, 0xc000072008) arr=([66 77], 0xc000072010)
+```
+Go 语言的整型和数组类型都是值传递的，也就是在调用函数时会对内容进行拷贝。需要注意的是如果当前数组的大小非常的大，这种传值的方式会对性能造成比较大的影响。
+- 结构体和指针
+```golang
+type MyStruct struct {
+	i int
+}
+
+func myFunction(a MyStruct, b *MyStruct) {
+	a.i = 31
+	b.i = 41
+	fmt.Printf("in my_function - a=(%d, %p) b=(%v, %p)\n", a, &a, b, &b)
+}
+
+func main() {
+	a := MyStruct{i: 30}
+	b := &MyStruct{i: 40}
+	fmt.Printf("before calling - a=(%d, %p) b=(%v, %p)\n", a, &a, b, &b)
+	myFunction(a, b)
+	fmt.Printf("after calling  - a=(%d, %p) b=(%v, %p)\n", a, &a, b, &b)
+}
+
+$ go run main.go
+before calling - a=({30}, 0xc000018178) b=(&{40}, 0xc00000c028)
+in my_function - a=({31}, 0xc000018198) b=(&{41}, 0xc00000c038)
+after calling  - a=({30}, 0xc000018178) b=(&{41}, 0xc00000c028)
+```
+**传递结构体时：会拷贝结构体中的全部内容；传递结构体指针时：会拷贝结构体指针；修改结构体指针是改变了指针指向的结构体。**
+**所以将指针作为参数传入某个函数时，函数内部会复制指针，也就是会同时出现两个指针指向原有的内存空间，所以 Go 语言中传指针也是传值。**
+
+在传递数组或者内存占用非常大的结构体时，我们应该尽量使用指针作为参数类型来避免发生数据拷贝进而影响性能。
+
+## 反射
+反射机制就是在运行时动态的调用对象的方法和属性，官方自带的reflect包就是反射相关的。Golang的gRPC也是通过反射实现的。
+
+使用
+* 反射可以大大提高程序的灵活性，使得interface{}有更大的发挥余地。
+1. **反射必须结合interface才玩得转**。
+2. 变量的type要是concrete type的（也就是interface变量）才有反射一说。
+* 反射可以将“接口类型变量”转换为“反射类型对象”。
+1. 反射使用 TypeOf 和 ValueOf 函数从接口中获取目标对象信息。
+* 反射可以将“反射类型对象”转换为“接口类型变量。
+1. reflect.value.Interface().(已知的类型)。
+2. 遍历reflect.Type的Field获取其Field。
+* 反射可以修改反射类型对象，但是其值必须是“addressable”。
+1. **想要利用反射修改对象状态，前提是 interface.data 是 settable,即 pointer-interface**。
+* 通过反射可以“动态”调用方法。
+* 因为Golang本身不支持模板，因此在以往需要使用模板的场景下往往就需要使用反射(reflect)来实现。
+
+```golang
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type order struct {
+	ordId      int
+	customerId int
+}
+
+type employee struct {
+	name    string
+	id      int
+	address string
+	salary  int
+	country string
+}
+
+func query(q interface{}) {
+	if reflect.ValueOf(q).Kind() == reflect.Struct {
+		t := reflect.TypeOf(q).Name()
+		sql := fmt.Sprintf("insert into %s values(", t)
+		v := reflect.ValueOf(q)
+		for i := 0; i < v.NumField(); i++ {
+			switch v.Field(i).Kind() {
+			case reflect.Int:
+				if i == 0 {
+					sql += fmt.Sprintf("%d", v.Field(i).Int())
+				} else {
+					sql += fmt.Sprintf(", %d", v.Field(i).Int())
+				}
+			case reflect.String:
+				if i == 0 {
+					sql += fmt.Sprintf("\"%s\"", v.Field(i).String())
+				} else {
+					sql += fmt.Sprintf(", \"%s\"", v.Field(i).String())
+				}
+			default:
+				fmt.Println("Unsupported type")
+				return
+			}
+		}
+		sql = fmt.Sprintf("%s)", sql)
+		fmt.Println(sql)
+		return
+
+	}
+	fmt.Println("unsupported type")
+}
+
+func main() {
+	o := order{
+		ordId:      456,
+		customerId: 56,
+	}
+	query(o)
+
+	e := employee{
+		name:    "Naveen",
+		id:      565,
+		address: "Coimbatore",
+		salary:  90000,
+		country: "India",
+	}
+	query(e)
+
+	i := 90  // 这是一个错误的尝试
+	query(i)
+
+}
+```
+
+参考：<br>
+[golang中的reflect(反射)](https://www.jianshu.com/p/26a284e69586)<br>
+[Golang的反射reflect深入理解和示例](https://studygolang.com/articles/12348?fr=sidebar)<br>
+[golang reflect使用总结](http://researchlab.github.io/2016/02/17/go-reflect-summarize/)
+
 ## 方法
 方法能给用户定义的类型添加新的行为。方法实际上也是函数，只是在声明时，在关键字func和方法名之间增加了一个参数。
 ```golang
@@ -521,13 +714,16 @@ func main(){
 接口是用来定义行为的类型。这些被定义的行为不由接口直接实现，而是通过方法由用户定义的类型实现。如果用户定义的类型实现了某个接口类型声明的一组方法，那么这个用户定义的类型的值就可以赋给这个接口类型的值。这个赋值会把用户定义的类型的值存入接口类型的值。<br>
 对接口值方法的调用会执行接口值里存储的用户定义的类型的值对应的方法。因为任何用户定义的类型都可以实现任何接口，所以对接口值方法的调用自然就是一种多态。
 
+Go 语言中接口的实现都是隐式的。实现接口的所有方法就隐式地实现了接口。
 ## 方法集
 方法集定义了接口的接受规则。<br>
 方法集的规则
 
 ![](../pictures/golang/method_set.png)
 
-因为不是总能获取一个值的地址，所以值的方法集只包括了使用值接收者实现的方法。
+因为不是总能获取一个值的地址，所以值的方法集只包括了使用值接收者实现的方法。<br>
+**当我们使用指针实现接口时，只有指针类型的变量才会实现该接口；当我们使用结构体实现接口时，指针类型和结构体类型都会实现该接口**。函数时，都可以。<br>
+使用结构体实现接口带来的开销会大于使用指针实现。
 
 ## 多态
 对接口值方法的调用会执行接口值里存储的用户定义的类型的值对应的方法。因为任何用户定义的类型都可以实现任何接口，所以对接口值方法的调用自然就是一种多态。
@@ -722,9 +918,11 @@ panic：在go中，当程序出现异常时，会发生panic。当发生panic后
 
 recover：捕获异常。
 
+* panic只会触发当前Goroutine的defer。
 * defer需要放在panic之前定义，另外recover只有在defer调用的函数中才有效。
 * recover处理异常后，逻辑并不会恢复到panic那个点去，函数跑到defer之后的那个点。
 * 多个defer会形成defer栈，后定义的defer语句会被最先调用。
+* **函数里有defer和panic执行顺序：先defer后panic, 即先按照栈顺序输出所有的defer，再按照队列顺序输出所有的panic**。
 
 recover用来对panic的异常进行捕获。panic用于向上传递异常，执行顺序是在defer之后。
 ```Golang
@@ -1095,6 +1293,26 @@ func incCounter(id int){
 	}
 }
 ```
+Once：可以保证在Go程序运行期间的某段代码只会执行一次。
+* sync.Once.Do方法中传入的函数无入参，只会被执行一次，哪怕函数中发生了panic。
+* 两次调用sync.Once.Do方法传入不同的函数只会执行第一次调传入的函数。
+```golang
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+func main() {
+	o := &sync.Once{}
+	for i := 0; i < 10; i++ {
+		o.Do(func() {
+			fmt.Println("only once")
+		})
+	}
+}
+```
 
 ### **通道**
 通道通过发送和接收需要共享的资源，在goroutine之间做同步。<br>
@@ -1315,6 +1533,107 @@ func worker(tasks chan string, worker int){
 ```
 **当通道关闭后，goroutine依旧可以从通道接收数据，但是不能再向通道里发送数据**。能够从已经关闭的通道接收数据这一点非常重要，因为这允许通道关闭后依旧能取出其中缓冲的全部值，而不会有数据丢失。
 
+### **select**
+select就是用来监听和channel有关的IO操作，当 IO 操作发生时，触发相应的动作。
+
+基本用法<br>
+```golang
+//select基本用法
+select {
+case <- chan1:
+// 如果chan1成功读到数据，则进行该case处理语句
+case chan2 <- 1:
+// 如果成功向chan2写入数据，则进行该case处理语句
+default:
+// 如果上面都没有成功，则进入default处理流程
+```
+
+语法<br>
+* 每个case都必须是一个通信。
+* 如果有一个或多个IO操作可以完成，则Go运行时系统会随机的选择一个执行，否则的话，如果有default分支，则执行default分支语句，如果连default都没有，则select语句会一直阻塞，直到至少有一个IO操作可以进行。
+* 所有channel表达式都会被求值、所有被发送的表达式都会被求值。求值顺序：自上而下、从左到右。
+
+用法<br>
+* 使用select实现timeout机制
+```golang
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main () {
+	timeout := make (chan bool, 1)
+	go func() {
+		time.Sleep(1e9) // sleep one second
+		timeout <- true
+	}()
+	select {
+		case <- timeout:
+			fmt.Println("timeout!")
+	}
+}
+```
+* 使用select语句来检测chan是否已经满了
+```golang
+package main
+
+import (
+	"fmt"
+)
+
+func main () {
+	ch2 := make (chan int, 1)
+	ch2 <- 1
+	select {
+		case ch2 <- 2:
+		default:
+		fmt.Println("channel is full !")
+	}
+}
+```
+* for-select
+```golang
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	var errChan = make(chan int)
+	//定时2s
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	go func(a chan int) {
+		//5s发一个信号
+		time.Sleep(time.Second * 5)
+		errChan <- 1
+	}(errChan)
+LOOP:
+	for {
+		select {
+		case <-ticker.C: {
+			fmt.Println("Task still running")
+		}
+		case res, ok := <-errChan:
+			if ok {
+				fmt.Println("chan number:", res)
+				break LOOP
+			}
+		}
+	}
+	fmt.Println("end!!!")
+}
+```
+
+参考：<br>
+[golang中的select关键字用法总结](https://www.jb51.net/article/188285.htm)<br>
+[【golang】select关键字用法](https://www.jianshu.com/p/2a1146dc42c3)<br>
+[golang 之select 的高级用法](https://juejin.cn/post/6844903829935226894)
+
 ## Context
 上下文<br>
 在网络编程下，当接收到一个网络请求Request，处理Request时，我们可能需要开启不同的Goroutine来获取数据与逻辑处理，即一个请求Request，会在多个Goroutine中处理。而这些Goroutine可能需要共享Request的一些信息；同时当Request被取消或者超时的时候，就需要所有为这个request服务的gorountine被快速回收。
@@ -1329,24 +1648,15 @@ context包通过构建树型关系的Context，来达到上一层Goroutine能对
 
 在子Context被传递到的goroutine中，应该对该子Context的Done信道（channel）进行监控，一旦该信道被关闭（即上层运行环境撤销了本goroutine的执行），应主动终止对当前请求信息的处理，释放资源并返回。
 
-
-使用方法<br>
-一般使用的根节点都是直接使用context.Background。<br>
-后边可以与WithCancel，DeadLine，TimeOut配合使用。Parent context可以通过cancel fun等来控制其子context的结束（也对应着子gorountine），并且层层的gorountine需要判断Done。
-
-使用注意<br>
-cancel类型的context在使用的最后一定要调用cancel释放资源，不然有可能Done没有被使用，导致资源无法被释放。或者parent对应的context Done close了。所有在代码中应该尽量及早的cancel对应context
-
-
-
+* context包主要用于在 goroutine 之间传递取消信号、超时时间、截止时间以及一些共享的值等。它并不是太完美，但几乎成了并发控制和超时控制的标准做法。
+* 使用上，先创建一个根节点的 context，之后根据库提供的四个函数创建相应功能的子节点 context。由于它是并发安全的，所以可以放心地传递。
+* 当使用 context 作为函数参数时，直接把它放在第一个参数的位置，并且命名为 ctx。另外，不要把 context 嵌套在自定义的类型里。
+* 比较常见的使用场景是传递请求对应用户的认证令牌以及用于进行分布式追踪的请求 ID。
 
 参考：<br>
 [理解GO CONTEXT机制](https://www.cnblogs.com/zhangboyu/p/7456606.html_)<br>
 [Go context](https://www.jianshu.com/p/f5919c78b5cd)<br>
-
-
-
-
+[深度解密Go语言之context](https://www.cnblogs.com/qcrao-2018/p/11007503.html)<br>
 
 ## 内存管理
 [参考](https://www.jianshu.com/p/7405b4e11ee2)
@@ -1406,6 +1716,8 @@ Go编译器会自动找出需要进行动态分配的变量，它是在编译时
 容易造成逃逸的情况<br>
 * 多级间接赋值容易导致逃逸。多级间接指的是对某个引用类对象中的引用类成员进行赋值。Go语言中的引用类数据类型有func，interface，slice，map，chan，*Type(指针)。
 
+[学习](https://draveness.me/golang/docs/part3-runtime/ch07-memory/golang-memory-allocator/)
+
 ### **垃圾回收**
 [参考](https://www.jianshu.com/p/0083a90a8f7e)<br>
 标记清除<br>
@@ -1428,15 +1740,244 @@ GC流程
 5. Mark termination阶段，开启STW，回头重新扫描root区域新变量，对他们进行标记。
 6. Sweep阶段，关闭STW和写屏障，对白色对象进行清除。
 
+## 操作命令
+[参考](http://c.biancheng.net/golang/build/)
+| 命令  | 备注                                   |
+| -------- | -----------                           |
+| go build（编译）       | 编译，输出可执行文件                    |
+| go clean（清除编译文件）     |  |
+| go run（编译并运行）       | 编译源码，并且直接执行源码的 main() 函数，不会在当前目录留下可执行文件     |
+| gofmt（格式化代码文件)      | gofmt是一个独立的cli程序，go fmt命令是 gofmt的简单封装。                         |
+| go install（编译并安装）	   | 第一步是生成结果文件（可执行文件或者 .a 包），第二步会把编译好的结果移到 $GOPATH/pkg 或者 $GOPATH/bin。                      |
+| **go get**（一键获取代码、编译并安装）     | 借助代码管理工具通过远程拉取或更新代码包及其依赖包，并自动完成编译和安装。 |
+| go generate（在编译前自动化生成某类代码)      | gofmt是一个独立的cli程序，go fmt命令是 gofmt的简单封装。   |
+| go generate（在编译前自动化生成某类代码)      | 当运行该命令时，它将扫描与当前包相关的源代码文件，找出所有包含//go:generate的特殊注释，提取并执行该特殊注释后面的命令。  |
+| **go test**（测试)      | 会自动读取源码目录下面名为 *_test.go 的文件，生成并运行测试用的可执行文件。  |
+| go list     |   |
+
+
+### go&nbsp;get
+这个命令在内部实际上分成了两步操作：第一步是下载源码包，第二步是执行 go install。
+| 参数  | 备注                                   |
+| -------- | -----------                           |
+| -d       | 只下载不安装                    |
+| -f     | 只有在包含了 -u 参数的时候才有效，不让 -u 去验证 import 中的每一个都已经获取了，这对于本地 fork 的包特别有用 |
+| -fix       | 在获取源码之后先运行 fix，然后再去做其他的事情     |
+| -t       | 同时也下载需要为运行测试所需要的包     |
+| -u       | 强制使用网络去更新包和它的依赖包     |
+| -v      | 	显示操作流程的日志及信息，方便检查错误   |
+| -insecure      | 	允许使用不安全的 HTTP 方式进行下载操作   |
+
+
+用 go get 拉取新的依赖<br>
+* 拉取最新的版本(优先择取 tag)
+```bash
+go get golang.org/x/text@latest
+```
+* 拉取 master 分支的最新 commit
+```bash
+go get golang.org/x/text@master
+```
+* 拉取 tag 为 v0.3.2 的 commit
+```bash
+go get golang.org/x/text@v0.3.2
+```
+* 拉取 hash 为 342b231 的 commit，最终会被转换为 v0.3.2
+```bash
+go get golang.org/x/text@342b2e
+```
+### go&nbsp;test
+[单元测试](http://c.biancheng.net/view/124.html)
+
+### go&nbsp;clean
+清理moudle 缓存
+```bash
+go clean -modcache
+```
+### go&nbsp;list
+查看可下载版本
+```bash
+go list -m -versions github.com/gogf/gfs
+go list -m -json all #以 json 的方式打印依赖详情
+```
+
 ## 包管理工具
-[Go依赖包管理工具对比](https://studygolang.com/articles/10523)
-### module
+### GOPATH和GOROOT
+GOROOT：不是必须要设置的。默认go会安装在/usr/local/go下，但也允许自定义安装位置，GOROOT的目的就是告知go当前的安装位置，编译的时候从GOROOT去找SDK的system libariry。<br>
+GOPATH：必须要设置，但并不是固定不变的。GOPATH的目的是为了告知go，需要代码的时候，去哪里查找。注意这里的代码，包括本项目和引用外部项目的代码。GOPATH可以随着项目的不同而重新设置。
+
+GOPATH下会有3个目录：src, bin, pkg。
+* src目录：go编译时查找代码的地方。
+* bin目录：go get godep这种bin工具的时候，二进制文件下载的目的地。
+* pkg目录：编译生成的lib文件存储的地方。
+### 管理依赖包
+对于go来说，无论代码是内部还是外部的，总之都在GOPATH里，任何import包的路径都是从GOPATH开始的；唯一的区别，就是内部依赖的包是开发者自己写的，外部依赖的包是go get下来的。
+### vendor
+依赖GOPATH来解决go import有个很严重的问题：如果项目依赖的包做了修改，或者干脆删掉了，会影响我的项目。因此在1.5版本以前，为了规避这个问题，通常会将当前使用的依赖包拷贝出来。<br>
+vendor属性就是让go编译时，优先从项目源码树根目录下的vendor目录查找代码(可以理解为切了一次GOPATH)，如果vendor中有，则不再去GOPATH中去查找。
+### 包管理工具
+比较常见的：glide、go modules。<br>
+原来的包管理方式：
+* 在不使用额外的工具的情况下，Go 的依赖包需要手工下载。
+* 第三方包没有版本的概念，如果第三方包的作者做了不兼容升级，会让开发者很难受。
+* 协作开发时，需要统一各个开发成员本地$GOPATH/src下的依赖包。
+* 引用的包引用了已经转移的包，而作者没改的话，需要自己修改引用。
+* 第三方包和自己的包的源码都在src下，很混乱。对于混合技术栈的项目来说，目录的存放会有一些问题。<br>
+
+新的包管理模式解决了以上问题：
+* 自动下载依赖包。
+* 项目不必放在$GOPATH/src内了。
+* 项目内会生成一个go.mod文件，列出包依赖。
+* 所以来的第三方包会准确的指定版本号。
+* 对于已经转移的包，可以用 replace 申明替换，不需要改代码。
+
 参考：<br>
-[Go语言go mod包依赖管理工具使用详解](http://c.biancheng.net/view/5712.html)<br>
-[Go语言编译与工具](http://c.biancheng.net/golang/build/)
-### glide
+[Go依赖包管理工具对比](https://studygolang.com/articles/10523)<br>
+
+#### glide
+glide是在vendor之后出来的。glide的依赖包信息在glide.yaml和glide.lock中，前者记录了所有依赖的包，后者记录了依赖包的版本信息。
+```bash
+glide create  # 创建glide工程，生成glide.yaml
+glide install # 生成glide.lock，并拷贝依赖包
+work, work, work
+glide update  # 更新依赖包信息，更新glide.lock
+```
+glide install会根据glide.lock来更新包的信息，如果没有则会走一把glide update生成glide.lock。<br>
+#### go&nbsp;modules
 参考：<br>
-[Go的包管理工具：glide](https://www.jianshu.com/p/8b80208a5034)
+[Golang中的包管理工具 - Go Modules](https://strconv.com/posts/go-modules/)<br>
+[golang包管理工具](https://www.cnblogs.com/informatics/p/11431119.html)<br>
+[Golang modules包依赖管理工具](https://www.cnblogs.com/kaituorensheng/p/12261395.html)<br>
+[Go module的介绍及使用](https://blog.csdn.net/benben_2015/article/details/82227338)<br>
+[**一文搞懂 Go Modules 前世今生及入门使用**](https://www.cnblogs.com/wongbingming/p/12941021.html)<br>
+##### 前提
+1. Go要>=1.11。
+2. 通过环境变量GO111MODULE开启或者关闭Modules。
+* 可在 /etc/profile 或 ～/.bash_profile 下添加 'GO111MODULE=on', 永久生效（新打开终端）。
+* 或在单个工程根目录下，在终端下输入 'export GO111MODULE=on'，临时生效（本终端）。
+
+开启modules：<br>
+目前Modules并不是默认启用的，可以通过环境变量GO111MODULE开启或者关闭，它有三个可选值：off、on、auto，默认值是 auto。
+* off：go命令行将不会支持module功能，寻找依赖包的方式将会沿用旧版本那种通过vendor目录或者GOPATH模式来查找。
+* on：go命令行会使用modules，而一点也不会去GOPATH目录下查找。
+* auto：go命令行将会根据当前目录来决定是否启用module功能。这种情况下可以分为两种情形：当前目录在GOPATH/src之外且该目录包含go.mod文件；当前文件在包含go.mod文件的目录下面。
+
+注：modules 功能启用时，依赖包的存放位置变更为$GOPATH/pkg，允许同一个package多个版本并存，并且是文件权限是只读的 -r--r--r--，且多个项目可以共享缓存的 module。
+
+##### **操作**：
+1. 初始化，并下载依赖<br>
+进入到当前工程的目录下
+```bash
+go mod init name #生成go.mod文件（项目中只需要执行一次），注意：name可以为任意名称，一般为项目名称。
+go mod tidy #第一次执行会生成一个go.sum文件，这条命令会自动更新依赖关系，并且将包下载放入cache。
+go mod verify #验证(optional)
+```
+2. vendor模式<br>
+会在项目下生成新的vendor目录，并把项目依赖下载到vendor中，此时vendor里的依赖只有项目中被使用的文件（例如：未被引用的子目录 、*_test.go等不会被包含）。
+```bash
+go mod vendor
+```
+3. golang第三方包源
+墙外有很多优秀的资源， 比如golang.org上的第三方包，可以通过以下两种方式来下载。
+*  代理goproxy<br>
+设置golang环境变量GOPROXY
+```bash
+export GOPROXY=http://goproxy.io （官方维护，香港节点，该地址可稳定访问）
+export GOPROXY=http://mirrors.aliyun.com/goproxy/ （该地址速度快，但有些包版本无法获取）
+export GOPROXY=https://athens.azurefd.net   (微软cdn节点，也很稳定，快速) 推荐 
+export GOPROXY=https://gocenter.io
+```
+注：上述golang源选择其一即可。如果使用的 Go version>=1.13, 可以通过设置 GOPRIVATE 环境变量来控制哪些私有仓库和依赖(公司内部仓库)不通过proxy来拉取，直接走本地，设置如下：
+```bash
+go env -w GOPROXY=https://goproxy.io,direct
+go env -w GOPRIVATE=*.corp.example.com # 设置不走 proxy 的私有仓库，多个用逗号相隔
+```
+* 地址替换replace<br>
+go mod提供了replace来解决国内开发者无法访问墙外资源的痛苦。具体方法如下：
+编辑go.mod文件，在文件末尾添加下面这些被墙的包，执行go mod tidy下载。
+```golang
+replace golang.org/x/net => github.com/golang/net latest
+replace golang.org/x/tools => github.com/golang/tools latest
+replace golang.org/x/crypto => github.com/golang/crypto latest
+replace golang.org/x/sys => github.com/golang/sys latest
+```
+
+##### 命令
+| 命令  | 备注                                   |
+| -------- | -----------                           |
+| go mod download        | 下载 go.mod 文件中指明的所有依赖     |
+| go mod edit   | 编辑 go.mod 文件 |
+| go mod graph       | 打印模块依赖图 |
+| **go mod init**      | 生成 go.mod 文件     |
+| **go mod tidy**       | 拉取缺少的模块，移除不用的模块     |
+| **go mod vendor**      | 	将依赖复制到vendor下   |
+| go mod verify      | 	验证依赖是否正确   |
+| go mod why      | 	查找依赖   |
+<br>
+###### go&nbsp;mod&nbsp;init
+初始化项目
+```bash
+go mod init name #注意：name可以为任意名称，一般为项目名称。
+```
+如引入go-gin
+```bash
+go mod init github.com/jihite/go-gin-example
+```
+执行完后，go.mod如下
+```golang
+module github.com/jihite/go-gin-example
+
+go 1.13
+
+require (
+    github.com/gin-gonic/gin v1.5.0
+    github.com/go-playground/universal-translator v0.17.0 // indirect
+    github.com/golang/protobuf v1.3.3 // indirect
+    github.com/json-iterator/go v1.1.9 // indirect
+    github.com/leodido/go-urn v1.2.0 // indirect
+    github.com/mattn/go-isatty v0.0.12 // indirect
+    github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
+    github.com/modern-go/reflect2 v1.0.1 // indirect
+    golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5 // indirect
+    gopkg.in/go-playground/validator.v9 v9.31.0 // indirect
+    gopkg.in/yaml.v2 v2.2.8 // indirect
+)
+```
+其中indirect 是非直接依赖。<br>
+同时多了go.sum文件，如下：
+```golang
+github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/gin-contrib/sse v0.1.0 h1:Y/yl/+YNO8GZSjAhjMsSuLt29uWRFHdHYUb5lYOV9qE=
+github.com/gin-contrib/sse v0.1.0/go.mod h1:RHrZQHXnP2xjPF+u1gW/2HnVO7nvIa9PG3Gm+fLHvGI=
+github.com/gin-gonic/gin v1.5.0 h1:fi+bqFAx/oLK54somfCtEZs9HeH1LHVoEPUgARpTqyc=
+github.com/gin-gonic/gin v1.5.0/go.mod h1:Nd6IXA8m5kNZdNEHMBd93KT+mdY3+bewLgRvmCsR2Do=
+```
+go.sum罗列了当前项目直接和间接依赖的所有模块版本，格式:
+模块路径，模块版本，哈希检验值，其中哈希检验值是用来保证当前缓存的模块不会被篡改。hash 是以h1:开头的字符串，表示生成checksum的算法是第一版的hash算法（sha256）。<br>
+h1:hash 和 go.mod h1:hash两者，要不就是同时存在，要不就是只存在 go.mod h1:hash。那什么情况下会不存在 h1:hash 呢，就是当 Go 认为肯定用不到某个模块版本的时候就会省略它的h1 hash，就会出现不存在 h1 hash，只存在 go.mod h1:hash 的情况。<br>
+
+go.mod文件，提供了四个命令<br>
+* module 语句指定包的名字（路径）
+* require 语句指定的依赖项模块。
+* replace 语句可以替换依赖项模块。modules 可以通过在 go.mod 文件中使用 replace 指令替换成github上对应的库。
+* exclude 语句可以忽略依赖项模块
+
+###### go&nbsp;mod&nbsp;tidy
+使用命令（go get，go build，go test以及go list等）时，go会自动得更新go.mod文件，将依赖关系写入其中。<br>
+如果想手动处理依赖关系，可以执行如下语句，删除不需要的依赖。
+```bash
+go mod tidy
+```
+
+###### go&nbsp;mod&nbsp;edit
+编辑go.mod文件，接 -fmt 参数格式化 go.mod 文件，接 -require=golang.org/x/text 添加依赖，接 -droprequire=golang.org/x/text 删除依赖<br>
+
+替代只能翻墙下载的库
+```golang
+go mod edit -replace=golang.org/x/crypto@v0.0.0=github.com/golang/crypto@latest
+go mod edit -replace=golang.org/x/sys@v0.0.0=github.com/golang/sys@latest
+```
 
 # 面试
 ## golang语言的特点以及与其他语言的区别
