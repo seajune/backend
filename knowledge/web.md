@@ -1,4 +1,5 @@
 - [基础](#基础)
+    - [Web](#Web)
     - [HTML](#HTML)
     - [WSGI、uwsgi、uWSGI](#WSGI、uwsgi、uWSGI)
     - [web服务器和web应用程序](#web服务器和web应用程序)
@@ -38,7 +39,7 @@ web（World Wide Web）即全球广域网，也称为万维网，它是一种基
 HTML：用于描述超文本。HTML是人与浏览器沟通的语言，告诉浏览器该怎么表现出我们要的东西。
 
 ## WSGI、uwsgi、uWSGI
-* WSGI：Web服务器网关接口。是一种规范，一种通信协议，提供了一种标准，一种sever与application之间的一种标准，**它定义了使用web应用程序与web服务器程序之间的接口格式，实现web应用程序与web服务器程序间的解耦**。要实现WSGI协议，必须同时实现web server和web application。可以有多个实现WSGI server的服务器，也可以有多个实现WSGI application的框架，可以选择任意的server和application组合实现自己的web应用，可以根据项目实际情况搭配使用。<br>
+* WSGI：Web服务器网关接口。是一种规范，一种通信协议，提供了一种标准，一种sever与application之间的标准，**它定义了使用web应用程序与web服务器程序之间的接口格式，实现web应用程序与web服务器程序间的解耦**。要实现WSGI协议，必须同时实现web server和web application。可以有多个实现WSGI server的服务器，也可以有多个实现WSGI application的框架，可以选择任意的server和application组合实现自己的web应用，可以根据项目实际情况搭配使用。<br>
 * uwsgi：与WSGI一样是一种通信协议，是uWSGI服务器的独占协议，用于定义传输信息的类型(type of information)，每一个uwsgi packet前4byte为传输信息类型的描述，与WSGI协议是两种东西，据说该协议是fcgi协议的10倍快。
 * uWSGI：uWSGI是一个Web服务器，实现了WSGI协议、uwsgi协议、http协议等。uWSGI服务器自己实现了基于uwsgi协议的server部分，只需要在uwsgi的配置文件中指定application的地址，uWSGI就能直接和应用框架中的WSGI application通信。
 
@@ -78,7 +79,7 @@ Nginx是一款轻量级的Web服务器、反向代理服务器及电子邮件（
 * 热部署（这个功能对于Nginx来说特别重要，热部署指可以在不停止Nginx服务的情况下升级Nginx）
 * BSD许可证（意味着可以将源代码下载下来进行修改然后使用自己的版本）
 
-与其他对比：
+对比：
 * Apache：高并发时消耗系统资源相对多一些；基于传统的[select](./operating_system.md#select)模型；
 * nginx：消耗代码资源比较低；基于异步IO模型，（[epoll](./operating_system.md#epoll)，kqueue），性能强，能够支持上万并发；对小文件支持很好，性能很高（限静态小文件1M）。
 

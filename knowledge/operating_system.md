@@ -18,6 +18,8 @@
         - [mmap](#mmap)
         - [sendfile](#sendfile)
         - [mmap和sendfile的区别](#mmap和sendfile的区别)
+    - [工具](#工具)
+        - [supervisor](#supervisor)
 - [面试](#面试)
     - [进程和线程的区别与联系](#进程和线程的区别与联系)
     - [进程间通信方式](#进程间通信方式)
@@ -75,7 +77,7 @@
 特点
 1. 消息队列是面向记录的，其中的消息具有特定的格式以及特定的优先级。
 2. 消息队列独立于发送与接收进程。进程终止时，消息队列及其内容并不会被删除。
-3. 消息队列可以实现消息的随机查询,消息不一定要以先进先出的次序读取,也可以按消息的类型读取。
+3. 消息队列可以实现消息的随机查询，消息不一定要以先进先出的次序读取，也可以按消息的类型读取。
 * 共享内存（Shared Memory）<br>
 共享内存（Shared Memory），指两个或多个进程共享一个给定的存储区。<br>
 特点
@@ -230,7 +232,7 @@ I/O密集型：I/O花费时间多，任务越多，CPU利用率越高，适合�
 ## IO多路复用
 可以处理大量客户端的同时连接。<br>
 基本原理<br>
-select，poll，epoll，kqueue这些function会不断的轮询所负责的所有socket，当某个socket就绪（一般是读就绪或者写就绪），就通知用户进程。
+select，poll，epoll，kqueue这些function会不断地轮询所负责的所有socket，当某个socket就绪（一般是读就绪或者写就绪），就通知用户进程。
 
 好处<br>
 单个进程/线程可以同时处理多个网络连接的IO，可以提高服务器的吞吐能力。
@@ -349,6 +351,90 @@ sendfile系统调用在两个文件描述符之间直接传递数据(完全在�
 * mmap需要4次上下文切换，3次数据拷贝；sendfile需要3次上下文切换，最少2次数据拷贝。
 * sendfile可以利用DMA方式，减少CPU拷贝，mmap则不能（必须从内核拷贝到Socket缓冲区）。
 
+## 工具
+### supervisor
+​Supervisor是用Python开发的一套通用的进程管理程序，能将一个普通的命令行进程变为后台daemon，并监控进程状态，异常退出时能自动重启。它是通过fork/exec的方式把这些被管理的进程当作supervisor的子进程来启动，这样只要在supervisor的配置文件中，把要管理的进程的可执行文件的路径写进去即可。也实现当子进程挂掉的时候，父进程可以准确获取子进程挂掉的信息的，可以选择是否自己启动和报警。supervisor还提供了一个功能，可以为supervisord或者每个子进程，设置一个非root的user，这个user就可以管理它对应的进程。<br>
+参考：<br>
+[【Linux】Supervisor使用详解](https://blog.csdn.net/qq_32109917/article/details/120985481)<br>
+[Linux进程管理工具 Supervisor详解](https://zhuanlan.zhihu.com/p/147305277)<br>
+
+## 命令
+### linux基本命令
+#### tail
+查看文件尾部内容：tail [参数] [文件]<br>
+
+参数 | 说明 | 其他
+---|---|---
+-f      | 循环读取         | 输出最后10行内容，同时监视文件的改变，只要文件更新就显示出来。
+-n<行数>   | 显示文件的尾部n行内容    | tail -n 5 filename：显示文件最后5行的内容<br> tail -5 filename：显示文件最后5行的内容
+不带参数      |        | tail filename：默认显示最后10行
+
+#### head
+查看文件头部内容：head [参数] [文件]<br>
+
+参数 | 说明 | 其他
+---|---|---
+-n<行数>   | 显示n行    | head -n 5 filename：显示文件前5行的内容<br> head -5 filename：显示文件前5行的内容
+不带参数      |         | head filename：默认显示前10行
+
+#### cat
+用于连接文件并打印到标准输出设备上：cat [参数] [文件]<br>
+
+参数 | 说明 | 其他
+---|---|---
+-n 或 --number   | 由 1 开始对所有输出的行数编号    | cat -n textfile1 > textfile2：把 textfile1 的文档内容加上行号后输入 textfile2 这个文档里
+-b 或 --number-nonblank      |  和 -n 相似，只不过对于空白行不编号       | cat -b textfile1 textfile2 >> textfile3：把 textfile1 和 textfile2 的文档内容加上行号（空白行不加）之后将内容附加到 textfile3 文档里
+
+#### cat
+用于连接文件并打印到标准输出设备上：cat [参数] [文件]<br>
+
+参数 | 说明 | 其他
+---|---|---
+-n 或 --number   | 由 1 开始对所有输出的行数编号    | cat -n textfile1 > textfile2：把 textfile1 的文档内容加上行号后输入 textfile2 这个文档里
+-b 或 --number-nonblank      |  和 -n 相似，只不过对于空白行不编号       | cat -b textfile1 textfile2 >> textfile3：把 textfile1 和 textfile2 的文档内容加上行号（空白行不加）之后将内容附加到 textfile3 文档里
+
+#### chmod
+改变文件或目录的访问权限：chmod<br>
+权限范围：u（拥有者）、g（群组）、o(其它用户)。<br>
+权限代号：r（读权限/4）、w（写权限/2）、x（执行权限/1）。<br>
+
+命令 | 说明 
+---|---
+chmod u+x test.sh | 给文件拥有者增加test.sh的执行权限 
+chmod a=rwx file<br> chmod 777 file |  将文件设为任何人可读、写、执行。a：所有用户, 相当于 ugo。  
+chmod u+x -R test | 给文件拥有者增加test目录及其下所有文件的执行权限  
+chmod -R a+r * | 将目前目录下的所有文件与子目录皆设为任何人可读取
+
+#### file
+用于辨识文件类型：file<br>
+
+#### find
+find命令用来在指定目录下查找文件。任何位于参数之前的字符串都将被视为欲查找的目录名。如果使用该命令时，不设置任何参数，则 find命令将在当前目录下查找子目录与文件。并且将查找到的子目录和文件全部进行显示。
+
+命令 | 说明 
+---|---
+find . -name "*.c" | 将当前目录及其子目录下所有文件后缀为 .c 的文件列出来 
+find . -type f |  将当前目录及其子目录中的所有文件列出  
+
+#### cp
+cp（copy file）用于复制文件或目录。
+
+参数 | 说明 | 其他
+---|---|---
+-r   | 若给出的源文件是一个目录文件，此时将复制该目录下所有的子目录和文件。   | 
+
+命令 | 说明 
+---|---
+cp -r /home/packageA /home/packageB<br>cp -r /home/packageA /home/packageB/<br>cp -r /home/packageA/ /home/packageB<br>cp -r /home/packageA/ /home/packageB/| 递归拷贝 packageA 文件及其任意层的结构到 packageB 中 
+cp -r packageA/* packageB<br>cp -r packageA/* packageB/ |  不拷贝 packageA 文件，只递归拷贝其任意层的子结构到 packageB 中 
+
+
+### vim命令
+### awk
+### 正则表达式
+### bash脚本命令
+
+
 # 面试
 ## **进程和线程的区别与联系**
 区别
@@ -393,8 +479,14 @@ sendfile系统调用在两个文件描述符之间直接传递数据(完全在�
 * poll：用户态不知道哪些文件描述符就绪，需要轮询所有文件描述符。
 * epoll：用户态只需轮询就绪的文件描述符。
 ## linux基本命令
-* 查看文件尾内容：tail<br>
+* 查看文件内容：tail<br>
+tail [参数] [文件]
+
+
 查看desc.txt的最后100行内容：tail -100 desc.txt
+查看desc.txt的前100行内容：
+* 统计输出信息的⾏数<br>
+wc -l
 * 搜索文件：find<br>
 在opt目录下查找以.txt结尾的文件：find /opt -name '*.txt'
 * 显示或配置网络设备：ifconfig<br>
@@ -423,5 +515,3 @@ tar文件（打包工具，把很多文件打包成一个文件，⼤⼩不变�
 gz文件，容量更小，压缩文件⼤小。<br>
 压缩：tar zcvf FileName.tar.gz FileName<br> 
 解压：tar zxvf FileName.tar.gz
-* 统计输出信息的⾏数<br>
-wc -l

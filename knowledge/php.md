@@ -45,6 +45,8 @@
         - [名称解析](#名称解析)
     - [异常处理](#异常处理)
     - [生成器](#生成器)
+    - [上下文](#上下文)
+    - [内存管理](#内存管理)
     - [包管理工具](#包管理工具)
         - [Composer](#Composer)
             - [下载](#下载)
@@ -75,7 +77,8 @@ PHP是解释型语言，动态语言类型。
 PHP是类C语言。
 
 [PHP解析过程](https://www.php.cn/php-ask-430514.html)<br>
-[PHP底层的运行机制与原理](https://www.cnblogs.com/wanglijun/p/8830932.html)
+[PHP底层的运行机制与原理](https://www.cnblogs.com/wanglijun/p/8830932.html)<br>
+[用户对动态PHP网页访问过程，以及nginx解析php步骤](https://blog.csdn.net/riuhazen/article/details/78684584)
 
 ## 特点
 * 可以被嵌入HTML语言。
@@ -617,7 +620,7 @@ echo "Hello World\n";
 ## 生成器
 实现一个xrange() 生成器, 只需要足够的内存来创建 Iterator 对象并在内部跟踪生成器的当前状态，这样只需要不到1K字节的内存。
 
-当一个生成器被调用的时候，它返回一个可以被遍历的对象.当你遍历这个对象的时候(例如通过一个foreach循环)，PHP 将会在每次需要值的时候调用生成器函数，并在产生一个值之后保存生成器的状态，这样它就可以在需要产生下一个值的时候恢复调用状态。<br>
+当一个生成器被调用的时候，它返回一个可以被遍历的对象。当你遍历这个对象的时候(例如通过一个foreach循环)，PHP 将会在每次需要值的时候调用生成器函数，并在产生一个值之后保存生成器的状态，这样它就可以在需要产生下一个值的时候恢复调用状态。<br>
 一旦不再需要产生更多的值，生成器函数可以简单退出，而调用生成器的代码还可以继续执行，就像一个数组已经被遍历完了。
 
 yield关键字<br>
@@ -637,10 +640,12 @@ foreach ($generator as $value) {
 }
 ?>
 ```
+
+## 上下文
+[PHP 请求上下文相关总结](https://www.jb51.net/article/210961.htm)
 ## 内存管理
-[参考一](https://www.cnblogs.com/huxuanjing/p/12585058.html)<br>
-[参考二](https://www.jianshu.com/p/dd0013f28286)<br>
-[参考三](https://zhuanlan.zhihu.com/p/92102165)<br>
+[参考一](https://www.shangyexinzhi.com/article/4671892.html)<br>
+[参考二](https://zhuanlan.zhihu.com/p/343695712)
 
 ## 包管理工具
 ### Composer
@@ -714,7 +719,7 @@ php composer.phar install
 如果正在使用Git来管理项目，可能要添加vendor到 .gitignore 文件中。<br>
 将创建一个 composer.lock 文件到项目的根目录中。
 ##### composer.lock：锁文件
-在安装依赖后，Composer将把安装时确切的版本号列表写入composer.lock文件。这将锁定改项目的特定版本。<br>
+在安装依赖后，Composer将把安装时确切的版本号列表写入composer.lock文件。这将锁定该项目的特定版本。<br>
 提交应用程序的 composer.lock （包括 composer.json）到版本库中。这是非常重要的，因为 install 命令将会检查锁文件是否存在，如果存在，它将下载指定的版本（忽略 composer.json 文件中的定义）。如果不存在 composer.lock 文件，Composer 将读取 composer.json 并创建锁文件。<br>
 这意味着如果你的依赖更新了新的版本，你将不会获得任何更新。此时要更新你的依赖版本请使用 update 命令。这将获取最新匹配的版本（根据你的 composer.json 文件）并将新版本更新进锁文件。
 ```bash
