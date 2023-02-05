@@ -1,6 +1,7 @@
 - [基础](#基础)
-    - [简介](#简介)
+    - [执行过程](#执行过程)
     - [特点](#特点)
+    - [php-fpm](#php-fpm)
     - [标准交互输入](#标准交互输入)
     - [数据类型](#数据类型)
         - [数组](#数组)
@@ -47,6 +48,7 @@
     - [生成器](#生成器)
     - [上下文](#上下文)
     - [内存管理](#内存管理)
+    - [并发](#并发)
     - [包管理工具](#包管理工具)
         - [Composer](#Composer)
             - [下载](#下载)
@@ -66,25 +68,58 @@
     - [php中字符串和整数比较的操作方法](#php中字符串和整数比较的操作方法)
     - [比较浮点数](#比较浮点数)
     - [删除数组的键和重建索引](#删除数组的键和重建索引)
-    - [php和nginx的关系，为什么需要用到nginx？](#php和nginx的关系，为什么需要用到nginx？)
+    - [php和nginx的关系](#php和nginx的关系)
     - [LNMP](#LNMP)
 
 ---
 # 基础
-## 简介
 PHP是解释型语言，动态语言类型。
 
-PHP是类C语言。
-
-[PHP解析过程](https://www.php.cn/php-ask-430514.html)<br>
-[PHP底层的运行机制与原理](https://www.cnblogs.com/wanglijun/p/8830932.html)<br>
-[用户对动态PHP网页访问过程，以及nginx解析php步骤](https://blog.csdn.net/riuhazen/article/details/78684584)
+PHP是一种适用于web开发的动态语言。具体点说，就是一个用C语言实现包含大量组件模块的软件框架。是一个强大的UI框架。
+## 执行过程
+![](../pictures/php/php_execution_process.png)<br>
+PHP动态语言执行过程：拿到一段代码后，经过词法解析、语法解析等阶段后，源程序会被翻译成一个个指令（opcodes），然后ZEND虚拟机顺次执行这些指令完成操作。PHP本身是用C实现的，因此最终调用的也是C的函数，实际上，我们可以把PHP看做一个C开发的软件。
 
 ## 特点
-* 可以被嵌入HTML语言。
-* 跨平台。
-* 效率高，消耗相当少的系统资源。
-* 面向对象。
+* 多进程模型：由于PHP是多进程模型，不同请求间互不干涉，这样保证了一个请求挂掉不会对全盘服务造成影响。
+* 弱类型语言：和C/C++、JAVA、C#等语言不同，PHP是一种弱类型的语言。一个变量的类型并不是一开始就确定不变的，运行中才会确定并可能发生隐式或显示的类型转换，这种机制的灵活性在web开发中非常方便、高效。
+* 引擎（Zend）+组件（ext）的模式降低内部耦合。
+* 中间层（sapi ）Sapi全称是Server Application Programming Interface 隔绝web server和PHP。
+* 语法简单灵活，没有太多规范。缺点导致风格混杂。
+
+## **php-fpm**
+php解析过程：
+![](../pictures/php/php_parsing_process.png)
+
+php解析升级过程：
+![](../pictures/php/php-fpm.png)
+* cgi(common gateway interface)：通用网关接口。是Web Server与Web Application之间数据交换的一种**协议**。**cgi程序是fork一个进程处理完再销毁（fork-and-execute模式），高并发下服务器无法承受花销**。
+* fast-cgi：同cgi，是一种通信**协议**，但比cgi在效率上做了一些优化。**采用了资源池的思想，通过master进程监听端口，对worker进程进行管理，worker进程就是对应cgi程序的角色，但在运行处理完不会销毁而是等待下一个请求**。fast-cgi像是一个常驻（long-live）型的CGI，**它可以一直执行着，只要激活后，不会每次都要花费时间去fork一次**。<br>
+FastCGI是语言无关的、可伸缩架构的CGI开放扩展，其主要行为是**将CGI解释器进程保持在内存中，并因此获得较高的性能**。众所周知，CGI解释器的反复加载是CGI性能低下的主要原因，如果CGI解释器保持在内存中，并接受FastCGI进程管理器调度，则可以提供良好的性能、伸缩性、Fail- Over特性等等。<br>
+它还支持分布式的运算, 即 FastCGI 程序可以在网站服务器以外的主机上执行，并且接受来自其它网站服务器来的请求。
+* php-cgi：是php（Web Application）对Web Server提供的cgi协议的**接口程序**。
+缺点：
+1. php-cgi变更php.ini配置后，需重启php-cgi才能让新的php-ini生效，不可以平滑重启。
+2. 直接杀死php-cgi进程，php就不能运行了。
+* php-fpm：是php（Web Application）对Web Server提供的fast-cgi协议的**接口程序**。**通过进程池调度和管理php解析器php-cgi**。<br>
+php-fpm通过生成新的子进程可以实现php.ini修改后的平滑重启。
+
+---
+* Web Server：一般指Apache、Nginx、IIS、Lighttpd、Tomcat等服务器。
+* Web Application：一般指PHP、Java、Asp.net等应用程序。
+
+---
+* cgi请求过程
+![](../pictures/php/cgi_request_process.png)
+* fast-cgi请求过程
+![](../pictures/php/fast-cgi_request_process.png)
+
+参考：<br>
+[PHP底层的运行机制与原理](https://www.cnblogs.com/wanglijun/p/8830932.html)<br>
+[**CGI、FastCGI和PHP-FPM关系图解**](https://www.awaimai.com/371.html)<br>
+[**深入理解 FastCGI 协议以及在 PHP 中的实现**](https://mengkang.net/668.html)<br>
+[PHP7内核剖析1之CGI与FastCGI](https://www.php.cn/php-weizijiaocheng-392474.html)<br>
+[用户对动态PHP网页访问过程，以及nginx解析php步骤](https://blog.csdn.net/riuhazen/article/details/78684584)
 
 ## 标准交互输入
 ```php
@@ -647,6 +682,20 @@ foreach ($generator as $value) {
 [参考一](https://www.shangyexinzhi.com/article/4671892.html)<br>
 [参考二](https://zhuanlan.zhihu.com/p/343695712)
 
+## 并发
+PHP是单进程同步模型，一个请求对应一个进程，I/O是同步阻塞的。通过nginx/apache/php-fpm等服务的扩展，才使得PHP提供高并发的服务，原理就是维护一个进程池，每个请求服务时单独起一个新的进程，每个进程独立存在。
+
+PHP通过多进程来利用CPU多核。
+
+多进程实现并发。PHP不支持多线程模式和回调处理。
+
+多线程并发实现：在Linux上，多线程模式下的PHP并不是一个稳定的SAPI。<br>
+[PHP实现并发请求](http://t.zoukankan.com/lalalagq-p-9971447.html)<br>
+[PHP编程中尝试程序并发的几种方式总结【PHP】](https://www.liuzhongwei.com/page/50132.html)
+[多线程编程-PHP实现](https://www.cnblogs.com/zhenbianshu/p/7978835.html)<br>
+[通俗易懂的php多线程解决方案](https://www.w3cschool.cn/php/php-thread.html)<br>
+[PHP中的线程安全](https://www.kancloud.cn/kancloud/php-internals/42815)
+
 ## 包管理工具
 ### Composer
 [参考官网](https://pkg.phpcomposer.com/)<br>
@@ -743,7 +792,8 @@ php composer.phar update monolog/monolog [...]
 要测试浮点数是否相等，要使用一个仅比该数值大一丁点的最小误差值。该值也被称为机器极小值（epsilon）或最小单元取整数，是计算中所能接受的最小的差别值。
 ## 删除数组的键和重建索引
 unset() 函数允许删除数组中的某个键。但要注意数组将不会重建索引。如果需要删除后重建索引，可以用 array_values() 函数。
-## php和nginx的关系，为什么需要用到nginx？
-nginx：监听端口，将请求转发。
+## php和nginx的关系
+nginx进行配置location，匹配到php相关的请求，处理转发到php-fpm监听的端口上，再交由php-fpm进行转发给对应的work进程处理。<br>
+[php-fpm](#php-fpm)
 ## LNMP
-LNMP：Linux+Nginx+MySQL+PHP
+LNMP：Linux+[Nginx](./web.md#Nginx)+MySQL+PHP

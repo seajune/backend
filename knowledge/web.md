@@ -4,11 +4,13 @@
     - [WSGI、uwsgi、uWSGI](#WSGI、uwsgi、uWSGI)
     - [web服务器和web应用程序](#web服务器和web应用程序)
     - [Nginx](#Nginx)
-        - [nginx](#nginx)
+        - [简介](#简介)
         - [正向代理](#正向代理)
         - [反向代理](#反向代理)
         - [负载均衡](#负载均衡)
         - [动静分离](#动静分离)
+            - [访问静态网站实现](#访问静态网站实现)
+            - [访问动态网站实现](#访问动态网站实现)
         - [限流](#限流)
         - [配置文件](#配置文件)
         - [Nginx常用命令](#Nginx常用命令)
@@ -51,12 +53,16 @@ web服务器和web应用程序之间的连接依靠WSGI和uwsgi之类的协议�
 
 常见的web服务器和web应用程序
 * web服务器：Apache、[Nginx](#Nginx)、Gunicorn
-* web应用程序：Flask、Django
+* web应用程序：Flask、Django、PHP、Java、Asp.net等应用程序。
 
 Django，Flask是实现了WSGI application协议的web框架。
 
 ## Nginx
-### nginx
+[8分钟带你深入浅出搞懂Nginx](https://zhuanlan.zhihu.com/p/34943332)<br>
+[连前端都看得懂的《Nginx 入门指南》](https://juejin.cn/post/6844904129987526663)<br>
+[高性能 -Nginx 多进程高并发、低时延、高可靠机制在百万级缓存 (redis、memcache) 代理中间件中的应用](https://xie.infoq.cn/article/2ee961483c66a146709e7e861)<br>
+[php-fpm](./php.md#php-fpm)
+### 简介
 Nginx是一款轻量级的Web服务器、反向代理服务器及电子邮件（IMAP/POP3）代理服务器。
 
 **特点**
@@ -124,6 +130,10 @@ nginx支持的四种负载均衡调度算法
 * 静态资源一般都是设计好的html页面，图片、视频等。而动态资源依靠设计好的程序来实现按照需求的动态响应。
 * 静态资源的交互性差，动态资源可以根据需求自由实现。
 * 在服务器的运行状态不同，静态资源不需要数据库参于程序处理，动态可能需要多个数据库的参与运算。
+#### 访问静态网站实现
+![](../pictures/web/visit_static_website.png)
+#### 访问动态网站实现
+![](../pictures/web/visit_dynamic_website.png)
 
 ### 限流
 [参考](https://www.cnblogs.com/biglittleant/p/8979915.html)
